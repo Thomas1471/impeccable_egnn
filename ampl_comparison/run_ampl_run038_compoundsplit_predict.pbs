@@ -1,0 +1,38 @@
+#!/bin/bash
+#PBS -N ampl_r038_pred
+#PBS -A CompBioAffin
+#PBS -q capacity
+#PBS -l select=1
+#PBS -l walltime=4:00:00
+#PBS -l filesystems=home:flare
+#PBS -j oe
+#PBS -o ampl_run038_compoundsplit_predict.log
+
+set -e
+
+cd ~/repos/IMPECCABLE_2.0/pose_generation/ampl
+
+source ~/venvs/impeccable_atomsci310/bin/activate
+
+export PYTHONNOUSERSITE=1
+export TF_ENABLE_ONEDNN_OPTS=0
+export OMP_NUM_THREADS=16
+export MKL_NUM_THREADS=16
+export OPENBLAS_NUM_THREADS=16
+export NUMEXPR_NUM_THREADS=16
+export TMPDIR=/lus/flare/projects/CompBioAffin/tomtom147/ampl_run038_compoundsplit_job/tmp
+export TMP=$TMPDIR
+export TEMP=$TMPDIR
+
+mkdir -p "$TMPDIR"
+
+echo "AMPL run038 compound-split prediction"
+echo "Date: $(date)"
+echo "Working directory: $(pwd)"
+echo "Python: $(which python)"
+python --version
+
+python -u ampl_predict_and_score_run038_compoundsplit_reload.py
+
+echo "Finished prediction/scoring"
+date

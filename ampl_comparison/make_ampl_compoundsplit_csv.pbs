@@ -1,0 +1,121 @@
+#!/bin/bash
+#PBS -N make_ampl_csv
+#PBS -A CompBioAffin
+#PBS -q capacity
+#PBS -l select=1
+#PBS -l walltime=02:00:00
+#PBS -l filesystems=home:flare
+#PBS -j oe
+#PBS -o make_ampl_compoundsplit_csv.log
+
+set -e
+
+cd ~/repos/IMPECCABLE_2.0/pose_generation/ampl
+module load frameworks/2025.3.1
+
+echo "Making ordered AMPL compound-split CSV"
+echo "Date: $(date)"
+echo "Python: $(which python)"
+python --version
+
+python - <<'PY'
+from pathlib import Path
+import json
+import numpy as np
+import pandas as pd
+
+IN = Path("/lus/flare/projects/CompBioAffin/tomtom147/impeccable_hist_10k/featurized_data_file_clean_abs1000.csv")
+OUT = Path("/lus/flare/projects/CompBioAffin/tomtom147/impeccable_hist_10k/featurized_data_file_run038_compound_split_ordered.csv")
+SUMMARY = Path("/lus/flare/projects/CompBioAffin/tomtom147/impeccable_hist_10k/ampl_compound_split_ordered_summary.json")
+
+SEED = 42
+
+print("Input:", IN, flush=True)
+print("Output:", OUT, flush=True)
+
+compound_nums = set()
+rows = 0
+
+for chunk in pd.read_csv(IN, usecols=["compound_num"], chunksize=200000):
+    rows += len(chunk)
+    compound_nums.update(chunk["compound_num"].astype(int).unique().tolist())
+
+compounds = np.array(sorted(compound_nums), dtype=np.int64)
+rng = np.random.default_rng(SEED)
+rng.shuffle(compounds)
+
+n = len(compounds)
+n_train = int(0.70 * n)
+remaining = n - n_train
+n_val = remaining // 2
+
+train_compounds = set(compounds[:n_train].tolist())
+val_compounds = set(compounds[n_train:n_train + n_val].tolist())
+test_compounds = set(compounds[n_train + n_val:].tolist())
+
+split_map = {}
+for c in train_compounds:
+    split_map[c] = "train"
+for c in val_compounds:
+    split_map[c] = "val"
+for c in test_compounds:
+    split_map[c] = "test"
+
+print("Rows:", rows, flush=True)
+print("Compounds:", n, flush=True)
+print("Train compounds:", len(train_compounds), flush=True)
+print("Val compounds:", len(val_compounds), flush=True)
+print("Test compounds:", len(test_compounds), flush=True)
+
+if OUT.exists():
+    print("Removing existing output:", OUT, flush=True)
+    OUT.unlink()
+
+counts = {"train": 0, "val": 0, "test": 0}
+compound_counts = {"train": set(), "val": set(), "test": set()}
+
+header_written = False
+
+for wanted_split in ["train", "val", "test"]:
+    print("Writing split:", wanted_split, flush=True)
+
+    for chunk in pd.read_csv(IN, chunksize=50000):
+        split = chunk["compound_num"].astype(int).map(split_map)
+        sub = chunk.loc[split == wanted_split].copy()
+
+        if len(sub):
+            sub.to_csv(OUT, mode="a", header=not header_written, index=False)
+            header_written = True
+
+            counts[wanted_split] += len(sub)
+            compound_counts[wanted_split].update(sub["compound_num"].astype(int).unique().tolist())
+
+summary = {
+    "input": str(IN),
+    "output": str(OUT),
+    "rows": int(sum(counts.values())),
+    "rows_by_split": {k: int(v) for k, v in counts.items()},
+    "compounds_by_split": {k: int(len(v)) for k, v in compound_counts.items()},
+    "split_order": ["train", "val", "test"],
+    "valid_frac_exact": 149100 / 993800,
+    "test_frac_exact": 149100 / 993800,
+    "seed": SEED,
+}
+
+SUMMARY.write_text(json.dumps(summary, indent=2))
+
+print(json.dumps(summary, indent=2), flush=True)
+
+assert summary["rows"] == 993800
+assert summary["rows_by_split"]["train"] == 695600
+assert summary["rows_by_split"]["val"] == 149100
+assert summary["rows_by_split"]["test"] == 149100
+assert summary["compounds_by_split"]["train"] == 6956
+assert summary["compounds_by_split"]["val"] == 1491
+assert summary["compounds_by_split"]["test"] == 1491
+
+print("DONE", flush=True)
+PY
+
+echo "Finished"
+echo "Date: $(date)"

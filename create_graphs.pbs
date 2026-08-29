@@ -1,0 +1,60 @@
+#!/bin/bash
+#PBS -N gen10k_graphs
+#PBS -A CompBioAffin
+#PBS -q capacity
+#PBS -l select=1
+#PBS -l walltime=12:00:00
+#PBS -l filesystems=home:flare
+#PBS -j oe
+#PBS -o generate_graphs.log
+
+cd ~/repos/IMPECCABLE_2.0/pose_generation/ampl
+module load frameworks/2025.3.1
+
+INPUT_ROOT=/lus/flare/projects/CompBioAffin/tomtom147/real_labelled_10k_inputs_sharded
+OUTPUT_ROOT=/lus/flare/projects/CompBioAffin/tomtom147/real_labelled_10k_res6_inter8_sharded
+LOG_ROOT=${OUTPUT_ROOT}/logs
+
+mkdir -p "$OUTPUT_ROOT" "$LOG_ROOT"
+
+SHARD_IDX=${PBS_ARRAY_INDEX}
+
+SHARD_NAME=$(awk -F',' -v idx="$SHARD_IDX" 'NR>1 && $1==idx {print $2}' "$INPUT_ROOT/shards_manifest.csv")
+
+if [ -z "$SHARD_NAME" ]; then
+  echo "Could not find shard for PBS_ARRAY_INDEX=$SHARD_IDX"
+  exit 1
+fi
+
+IN="$INPUT_ROOT/$SHARD_NAME"
+OUT="$OUTPUT_ROOT/$SHARD_NAME"
+LOG="$LOG_ROOT/${SHARD_NAME}.log"
+
+mkdir -p "$OUT"
+
+exec > "$LOG" 2>&1
+
+echo "Started: $(date)"
+echo "Node: $(hostname)"
+echo "SHARD_IDX=$SHARD_IDX"
+echo "SHARD_NAME=$SHARD_NAME"
+echo "IN=$IN"
+echo "OUT=$OUT"
+
+python -u feature_generation_general.py \
+  --pdb_dir "$IN/pdbs" \
+  --dcd_dir "$IN/dcds" \
+  --smiles_file "$IN/fixpka_compounds.smi" \
+  --mmpbsa_dir "$IN/min" \
+  --mode training \
+  --num_processes 1 \
+  --batch_size 10 \
+  --residue_cutoff 6.0 \
+  --interaction_cutoff 8.0 \
+  --prepared_data_file "$OUT/graph_metadata.csv"
+
+echo "Finished: $(date)"
+
+echo
+echo "Output files:"
+ls -lh "$OUT"

@@ -1,0 +1,50 @@
+#!/bin/bash
+#PBS -N eval_r038_test_best
+#PBS -A CompBioAffin
+#PBS -q capacity
+#PBS -l select=1
+#PBS -l walltime=8:00:00
+#PBS -l filesystems=home:flare
+#PBS -j oe
+#PBS -o eval_run038_compound_test_best.log
+
+set -e
+
+cd ~/repos/IMPECCABLE_2.0/pose_generation/ampl
+module load frameworks/2025.3.1
+
+export PYTHONNOUSERSITE=1
+export EGNN_EDGE_CUTOFF=8.0
+
+RUN_DIR=model_store/run_038
+DATA=/lus/flare/projects/CompBioAffin/tomtom147/real_labelled_10k_res6_inter8_sharded
+CKPT=$RUN_DIR/model.pt
+OUT=$RUN_DIR/eval_best_test_compound_holdout
+
+echo "Date: $(date)"
+echo "Checkpoint: $CKPT"
+echo "Run dir: $RUN_DIR"
+echo "Data: $DATA"
+echo "Out prefix: $OUT"
+echo "Python: $(which python)"
+python --version
+
+if [ ! -f "$CKPT" ]; then
+  echo "ERROR: missing checkpoint $CKPT"
+  exit 1
+fi
+
+python -u evaluate_egnn.py \
+  --checkpoint "$CKPT" \
+  --run_dir "$RUN_DIR" \
+  --sharded_root "$DATA" \
+  --split test \
+  --out_prefix "$OUT" \
+  --batch_size 16 \
+  --in_dim 6 \
+  --hidden_dim 128 \
+  --num_layers 4 \
+  --dropout 0.0
+
+echo "Finished eval"
+echo "Date: $(date)"

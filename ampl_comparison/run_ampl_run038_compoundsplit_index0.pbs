@@ -1,0 +1,64 @@
+#!/bin/bash
+#PBS -N ampl_r038_i0
+#PBS -A CompBioAffin
+#PBS -q capacity
+#PBS -l select=1
+#PBS -l walltime=4:00:00
+#PBS -l filesystems=home:flare
+#PBS -j oe
+#PBS -o ampl_run038_compoundsplit_index0.log
+
+set -e
+
+cd ~/repos/IMPECCABLE_2.0/pose_generation/ampl
+
+source ~/venvs/impeccable_atomsci310/bin/activate
+
+export PYTHONNOUSERSITE=1
+export TF_ENABLE_ONEDNN_OPTS=0
+export OMP_NUM_THREADS=16
+export MKL_NUM_THREADS=16
+export OPENBLAS_NUM_THREADS=16
+export NUMEXPR_NUM_THREADS=16
+
+echo "AMPL run038 compound split index 0"
+echo "Date: $(date)"
+echo "Working directory: $(pwd)"
+echo "Python: $(which python)"
+python --version
+
+python - <<'PY'
+import atomsci
+print("atomsci:", atomsci.__file__)
+import atomsci.ddm.pipeline.model_pipeline as mp
+print("model_pipeline:", mp.__file__)
+print("AMPL imports OK")
+PY
+
+echo
+echo "Checking ordered dataset:"
+python - <<'PY'
+import pandas as pd
+
+path = "/lus/flare/projects/CompBioAffin/tomtom147/impeccable_hist_10k/featurized_data_file_run038_compound_split_ordered.csv"
+df = pd.read_csv(path, usecols=["compound_num", "mmpbsa"])
+print("rows:", len(df))
+print("compounds:", df["compound_num"].nunique())
+assert len(df) == 993800
+assert df["compound_num"].nunique() == 9938
+PY
+
+echo
+echo "Checking training script:"
+ls -lh model_training_ampl_run038_compoundsplit.py
+grep -nE "dataset_key|splitter|split_valid_frac|split_test_frac|result_dir|descriptor_type|layer_sizes|save_results" model_training_ampl_run038_compoundsplit.py || true
+
+echo
+echo "Starting AMPL run038 compound-split training"
+date
+
+python -u model_training_ampl_run038_compoundsplit.py --index 0
+
+echo
+echo "Finished AMPL run038 compound-split training"
+date

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+#PBS -N egnn_run038_compound
+
+#PBS -A CompBioAffin
+
+#PBS -q capacity
+
+#PBS -l select=1
+
+#PBS -l walltime=72:00:00
+
+#PBS -l filesystems=home:flare
+
+#PBS -j oe
+
+#PBS -o egnn_run038.log
+
+set -e
+
+cd ~/repos/IMPECCABLE_2.0/impeccable_egnn
+
+module load frameworks/2025.3.1
+
+export PYTHONNOUSERSITE=1
+export EGNN_EDGE_CUTOFF=8.0
+
+echo "Date: $(date)"
+echo "Running compound-level holdout EGNN"
+echo "Data: /lus/flare/projects/CompBioAffin/tomtom147/real_labelled_10k_res6_inter8_sharded"
+echo "Python: $(which python)"
+python --version
+
+python -u model_training.py \
+  --index 38 \
+  --sharded_root /lus/flare/projects/CompBioAffin/tomtom147/real_labelled_10k_res6_inter8_sharded \
+  --model_store model_store \
+  --epochs 20 \
+  --batch_size 8 \
+  --lr 0.0003 \
+  --weight_decay 0.0 \
+  --seed 42 \
+  --train_frac 0.7 \
+  --lambda_relative 5.0 \
+  --max_norm 10.0 \
+  --in_dim 6 \
+  --hidden_dim 128 \
+  --num_layers 4 \
+  --dropout 0.0 \
+  --eval_every 1 \
+  --log_every 100
+
+echo "Finished training"
+echo "Date: $(date)"
