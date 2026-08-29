@@ -50,15 +50,13 @@ PY
 
 echo
 echo "Checking training script:"
-ls -lh model_training_ampl_run038_compoundsplit.py
-grep -nE "dataset_key|splitter|split_valid_frac|split_test_frac|result_dir|descriptor_type|layer_sizes|save_results" model_training_ampl_run038_compoundsplit.py || true
-
+ls -lh train_ampl_histogram_compound_split.py
+grep -nE "dataset_key|splitter|split_valid_frac|split_test_frac|result_dir|descriptor_type|layer_sizes" train_ampl_histogram_compound_split.py || true
 echo
 echo "Starting AMPL run038 compound-split training"
 date
 
-python -u model_training_ampl_run038_compoundsplit.py --index 0
-
+python -u train_ampl_histogram_compound_split.py --index 0
 echo
 echo "Finished AMPL run038 compound-split training"
 date

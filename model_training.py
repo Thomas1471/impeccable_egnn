@@ -145,9 +145,10 @@ def make_split_and_targets(df, train_frac, seed):
     rng.shuffle(compounds)
 
     n_compounds = len(compounds)
-    n_train = int(round(train_frac * n_compounds))
-    n_val = int(round(0.15 * n_compounds))
-    n_test = n_compounds - n_train - n_val
+    n_train = int(train_frac * n_compounds)
+    remaining = n_compounds - n_train
+    n_val = remaining // 2
+    n_test = remaining - n_val
 
     train_compounds = set(compounds[:n_train])
     val_compounds = set(compounds[n_train:n_train + n_val])

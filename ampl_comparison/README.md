@@ -1,9 +1,6 @@
 
 ## `ampl_comparison/README.md`
 
-Put this in `impeccable_egnn/ampl_comparison/README.md`:
-
-```md
 # AMPL Histogram Baseline Comparison
 
 This directory contains the scripts used to reproduce the matched AMPL/IMPECCABLE histogram baseline for comparison with the EGNN.
