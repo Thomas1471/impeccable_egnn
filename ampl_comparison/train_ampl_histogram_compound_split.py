@@ -1,3 +1,8 @@
+'''
+Trains the AMPL histogram neural network baseline using the ordered compound-split CSV.
+This script is adapted from the original IMPECCABLE/AMPL training code. The main project-specific change is the use of the same ordered compound-level split as the EGNN run038 experiment, allowing a matched comparison.
+
+'''
 import argparse
 import json
 
@@ -6,6 +11,9 @@ import atomsci.ddm.pipeline.parameter_parser as parse
 
 
 def get_model_training_params(args):
+    '''
+    Loads in model training parameters
+    '''
     with open("training_params.json", "r") as f:
         full_parameters = json.load(f)
 
@@ -15,8 +23,7 @@ def get_model_training_params(args):
 def train(args):
     variable_params = get_model_training_params(args)
     bs, ls, lr, wd = variable_params
-
-    # run038 compound-level split:
+    #Performs run038 compound-level split:
     # train compounds: 6956 -> 695600 rows
     # val compounds:   1491 -> 149100 rows
     # test compounds:  1491 -> 149100 rows
@@ -28,9 +35,7 @@ def train(args):
         "dataset_key": "./featurized_data_file_run038_compound_split_ordered.csv",
         "datastore": False,
 
-        # Important:
-        # The CSV is ordered as train rows, then validation rows, then test rows.
-        # Therefore, index splitting reproduces the EGNN run038 molecule split.
+
         "splitter": "index",
         "split_valid_frac": str(valid_frac),
         "split_test_frac": str(test_frac),
@@ -41,7 +46,7 @@ def train(args):
         "id_col": "uid",
         "smiles_col": "smiles",
 
-        # Keep separate from the old AMPL/random-split model_store.
+       
         "result_dir": "./model_store_ampl_run038_compoundsplit",
 
         "model_type": "NN",

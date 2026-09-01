@@ -1,3 +1,6 @@
+'''
+Reloads the trained AMPL model, predicts on the held-out test split and computes regression and pose-selection metrics.
+'''
 from pathlib import Path
 import json
 import numpy as np
@@ -41,7 +44,7 @@ assert (RUN_DIR / "transformers.pkl").exists()
 assert (RUN_DIR / "best_model" / "checkpoint1.pt").exists()
 
 print("Loading TEST split only from ordered CSV...")
-# Header is row 0. Skip rows 1..TEST_START inclusive to keep only final 149100 data rows.
+#Start from 1 as header is row 0
 df = pd.read_csv(DATA_CSV, skiprows=range(1, TEST_START + 1))
 
 print("test rows:", len(df))
@@ -68,6 +71,7 @@ pred_params_dict = {
 }
 
 print("Creating prediction pipeline from local reload dir...")
+#Create pipe used for predictions
 pred_params = parse.wrapper(pred_params_dict)
 pipe = mp.create_prediction_pipeline_from_file(
     pred_params,
@@ -87,6 +91,7 @@ print("Prediction shape:", pred_df.shape)
 print("Prediction columns:")
 print(list(pred_df.columns))
 
+#Print csv to specified path
 raw_pred_path = OUT_DIR / "ampl_run038_compoundsplit_test_predictions_raw.csv"
 pred_df.to_csv(raw_pred_path, index=False)
 print("Wrote:", raw_pred_path)
@@ -98,7 +103,6 @@ for c in ["mmpbsa_pred", "pred", "prediction", "mmpbsa"]:
         break
 
 if pred_col is None:
-    # Fallback: common AMPL/DC style can include exactly one *_pred column.
     candidates = [c for c in pred_df.columns if "pred" in c.lower()]
     if len(candidates) == 1:
         pred_col = candidates[0]
@@ -128,6 +132,8 @@ else:
     score_df = df2.copy()
     score_df[pred_col] = pred_df[pred_col].to_numpy()
 
+
+#Rename and store the scoring column, ensuring all predicted values are finite
 score_df = score_df.rename(columns={pred_col: "ampl_pred"})
 score_df["true_mmpbsa"] = score_df["mmpbsa"]
 
@@ -145,6 +151,9 @@ print("Wrote:", score_path)
 
 
 def regression_metrics(frame, true_col="true_mmpbsa", pred_col="ampl_pred"):
+    '''
+    Computes regression metrics
+    '''
     y_true = frame[true_col].to_numpy(dtype=float)
     y_pred = frame[pred_col].to_numpy(dtype=float)
 
@@ -166,6 +175,9 @@ def regression_metrics(frame, true_col="true_mmpbsa", pred_col="ampl_pred"):
 
 
 def selection_metrics(frame, pred_col="ampl_pred", true_col="true_mmpbsa"):
+    '''
+    Compute selection metrics
+    '''
     n_compounds = frame["compound_num"].nunique()
 
     regrets = []
@@ -210,6 +222,7 @@ def selection_metrics(frame, pred_col="ampl_pred", true_col="true_mmpbsa"):
         "median_selected_rank": float(np.median(selected_ranks)),
     }
 
+    #Calculate top-p counts for at least 90% of compounds
     for p in [1, 3, 5]:
         frac = hit_counts[p] / n_compounds
         out[f"p{p}_m90"] = int(np.where(frac >= 0.90)[0][0] + 1) if np.any(frac >= 0.90) else None
@@ -235,6 +248,7 @@ summary = {
     "selection_all_100": sel,
 }
 
+#Prints and saves summary
 summary_path = OUT_DIR / "ampl_run038_compoundsplit_test_summary.json"
 summary_path.write_text(json.dumps(summary, indent=2))
 

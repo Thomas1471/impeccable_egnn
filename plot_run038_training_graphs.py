@@ -1,3 +1,6 @@
+'''
+Plots the training graphs for the final run used in the dissertation, run 38
+'''
 import argparse
 import re
 from pathlib import Path

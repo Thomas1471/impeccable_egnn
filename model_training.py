@@ -1,3 +1,7 @@
+'''
+Main training file
+'''
+
 import argparse
 import gc
 import json
@@ -49,6 +53,9 @@ def move_to_device(obj, device):
 
 
 def torch_load_graphs(path):
+    '''
+    Loads graphs in
+    '''
     try:
         obj = torch.load(path, map_location="cpu", weights_only=False)
     except TypeError:
@@ -87,6 +94,9 @@ def find_frame_col(df):
 
 
 def discover_shards(sharded_root, max_shards=None):
+    '''
+    Find shards to use in training
+    '''
     root = Path(sharded_root)
     shards = []
 
@@ -106,6 +116,9 @@ def discover_shards(sharded_root, max_shards=None):
 
 
 def build_combined_metadata(shards):
+    '''
+    Combine both graphs and metadata into one
+    '''
     dfs = []
 
     for shard in shards:
@@ -130,6 +143,9 @@ def build_combined_metadata(shards):
 
 
 def make_split_and_targets(df, train_frac, seed):
+    '''
+    Split up the data into train, test and validation
+    '''
     df = df.copy()
     frame_col = find_frame_col(df)
 
@@ -148,12 +164,13 @@ def make_split_and_targets(df, train_frac, seed):
     n_train = int(train_frac * n_compounds)
     remaining = n_compounds - n_train
     n_val = remaining // 2
-    n_test = remaining - n_val
+   
 
     train_compounds = set(compounds[:n_train])
     val_compounds = set(compounds[n_train:n_train + n_val])
     test_compounds = set(compounds[n_train + n_val:])
 
+    #Check that splits are independent of each other
     if len(train_compounds & val_compounds):
         raise RuntimeError("Train/val compound overlap detected")
     if len(train_compounds & test_compounds):
@@ -169,6 +186,7 @@ def make_split_and_targets(df, train_frac, seed):
         bad = df.loc[df["split"] == "unassigned", "compound_num"].unique()
         raise RuntimeError(f"Unassigned compounds remain: {bad[:20]}")
 
+    #Print Details of Splits
     print("Compound-level split:", flush=True)
     print(f"  total compounds: {n_compounds}", flush=True)
     print(f"  train compounds: {len(train_compounds)}", flush=True)
@@ -179,6 +197,7 @@ def make_split_and_targets(df, train_frac, seed):
     print("Compounds by split:", flush=True)
     print(df.groupby("split")["compound_num"].nunique().sort_index(), flush=True)
 
+    #Find if any poses are not perfectly formed, like if any do not have 100 poses
     pose_counts = df.groupby("compound_num").size()
     bad_pose_counts = pose_counts[pose_counts != 100]
     if len(bad_pose_counts):
@@ -195,6 +214,7 @@ def make_split_and_targets(df, train_frac, seed):
     df["frame_template_score"] = df[frame_col].map(frame_template).fillna(global_train_mean)
     df["residual_target"] = df["mmpbsa"] - df["frame_template_score"]
 
+    #Calculate residual used for residual split
     train_residual = df.loc[df["split"] == "train", "residual_target"]
     residual_mean = float(train_residual.mean())
     residual_std = float(train_residual.std(ddof=0))
@@ -218,6 +238,9 @@ def make_split_and_targets(df, train_frac, seed):
 
 
 def make_batches(meta, batch_size, seed, shuffle):
+    '''
+    Make batches, grouping by compound number
+    '''
     rng = random.Random(seed)
     batches = []
 
@@ -238,6 +261,13 @@ def make_batches(meta, batch_size, seed, shuffle):
 
 
 def calculate_losses(pred, target, compound_ids, lambda_relative):
+    '''
+    Function used to calculate the two losses used in this dissertation:
+        absolute_loss: The regular mse loss of the prediction and the target
+        relative_loss: The average loss based off of the prediction difference between MSE compound-centred predictions and targets,
+                   encouraging within-compound pose discrimination.
+        total_loss: A combination of the two losses, with the relative_loss being weighted more to emphasise ranking performance
+    '''
     pred = pred.view(-1)
     target = target.view(-1)
 
@@ -277,6 +307,9 @@ def run_one_shard(
     max_batches=None,
     log_every=100,
 ):
+    '''
+    Performs one shard, for either training or evaluation
+    '''
     graph_file = shard_meta["shard_graph_file"].iloc[0]
     graphs = torch_load_graphs(graph_file)
 
@@ -340,6 +373,7 @@ def run_one_shard(
                 raise RuntimeError("Stopping because loss became NaN/Inf")
 
             if train:
+                #Performs a training loop
                 loss.backward()
                 if max_norm is not None and max_norm > 0:
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_norm)
@@ -361,6 +395,7 @@ def run_one_shard(
         abs_loss_sum += float(abs_loss.detach().cpu()) * n
         rel_loss_sum += float(rel_loss.detach().cpu()) * n
 
+        #Prints out losses
         if b % log_every == 0:
             mode = "train" if train else "val"
             print(
@@ -370,7 +405,7 @@ def run_one_shard(
                 f"rel={rel_loss_sum / total_examples:.6f}",
                 flush=True,
             )
-
+    #Deletes current shard, to avoid memory issues
     del graphs
     gc.collect()
     clear_device_cache(device)
@@ -396,6 +431,7 @@ def run_one_shard(
 
 
 def aggregate_metrics(metrics):
+    #Prints out losses
     total_examples = sum(m["examples"] for m in metrics)
 
     if total_examples == 0:
@@ -466,6 +502,7 @@ def main():
 
     # Drop any compound with at least one non-finite MMPBSA label.
     # For the 10k dataset this removes compound 2263, whose 100 pose labels are NaN.
+    #Also removes labels that are extreme nonsensical values, such as compound 5854
     before_rows = len(metadata)
     before_compounds = metadata["compound_num"].nunique()
 
@@ -475,7 +512,7 @@ def main():
 
     bad_label_mask = ~(finite_label & reasonable_label)
     bad_compounds = set(metadata.loc[bad_label_mask, "compound_num"].unique())
-
+    #Remove bad compounds that are not full - <100 poses
     if bad_compounds:
         bad_rows = metadata.loc[
             metadata["compound_num"].isin(bad_compounds),
@@ -521,6 +558,7 @@ def main():
     print("Saved metadata:", metadata_file, flush=True)
     print("Saved scaling:", scaling_file, flush=True)
 
+    #Defines model and optimiser
     model = EGNNRegressor(
         in_dim=args.in_dim,
         hidden_dim=args.hidden_dim,
@@ -537,6 +575,7 @@ def main():
     best_val_relative = float("inf")
     log_rows = []
 
+    #Runs epochs
     for epoch in range(1, args.epochs + 1):
         print()
         print("=" * 100, flush=True)
@@ -587,6 +626,8 @@ def main():
 
         train_summary = aggregate_metrics(train_metrics)
 
+        #Performs evaluation to select best epoch, if low_epochs <30, eval every epoch. 
+        #If want to save time, increase to 2
         do_eval = epoch == 1 or epoch % args.eval_every == 0 or epoch == args.epochs
         if do_eval:
             val_metrics = []

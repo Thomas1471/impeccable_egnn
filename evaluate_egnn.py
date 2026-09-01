@@ -1,3 +1,6 @@
+'''
+Loads a trained EGNN checkpoint, scores graph shards and reconstructs predicted raw MMPBSA scores from the frame-residual target.
+'''
 import os
 os.environ.setdefault("EGNN_EDGE_CUTOFF", "8.0")
 
@@ -14,6 +17,9 @@ from egnn_data_utils import collate_graphs_plain_torch
 
 
 def load_graphs(path):
+    '''
+    Loads graphs in
+    '''
     obj = torch.load(path, map_location="cpu", weights_only=False)
 
     if isinstance(obj, list):
@@ -79,6 +85,9 @@ def clean_state_dict(state):
 
 
 def detect_split_column(df):
+    '''
+    Find appropriate splitting column, to find sets between train, test and validation
+    '''
     if "split" in df.columns:
         return "split"
 
@@ -189,6 +198,9 @@ def load_scaling(path):
 
 
 def pearson(a, b):
+    '''
+    returns pearson correlation
+    '''
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
 
@@ -202,12 +214,18 @@ def pearson(a, b):
 
 
 def spearman(a, b):
+    '''
+    Returns the spearman correlation
+    '''
     a = pd.Series(a).rank(method="average").to_numpy()
     b = pd.Series(b).rank(method="average").to_numpy()
     return pearson(a, b)
 
 
 def regression_metrics(df, pred_col):
+    '''
+    Computes regression metrics such as MAE, RMSE, and R^2
+    '''
     y = df["mmpbsa"].to_numpy(dtype=float)
     p = df[pred_col].to_numpy(dtype=float)
 
@@ -234,6 +252,9 @@ def regression_metrics(df, pred_col):
 
 
 def ranking_metrics(df, score_col):
+    '''
+    Computes the hitting range for each compound
+    '''
     rows = []
 
     for cid, g in df.groupby("compound_num", sort=False):
@@ -273,6 +294,9 @@ def ranking_metrics(df, score_col):
 
 
 def m90(df, score_col, true_top):
+    '''
+    Computes the IMPECCABLE -style top-p metrics on 90% of compounds
+    '''
     max_poses = int(df.groupby("compound_num").size().max())
 
     for m in range(1, max_poses + 1):
@@ -304,6 +328,9 @@ def m90(df, score_col, true_top):
 
 
 def within_correlations(df, pred_col):
+    '''
+    Computes within correlation metrics
+    '''
     ps = []
     ss = []
 

@@ -11,10 +11,13 @@ import torch
 import MDAnalysis as mda
 
 from feature_generation_graph import create_pose_graph
-#### NEW INPUTS
+
 import torch
 
 from feature_generation_graph import create_pose_graph
+
+
+#Main graph-generation script. It converts IMPECCABLE docking outputs into atom-level protein-ligand graphs.
 
 
 def collect_file_paths(args):
@@ -151,7 +154,7 @@ def get_binding_site_protein_atoms(
 def compute_contacts_training(output_files): 
     G = [] 
     rows = []
-#    cutoff = args.cutoff
+
     for dcd_file, pdb_file, mmpbsa_file, smiles in output_files: 
         try: 
             # Create mda universe
@@ -169,55 +172,16 @@ def compute_contacts_training(output_files):
             with open(mmpbsa_file, 'r') as f: 
                 mmpbsa_values = f.readlines() 
             mmpbsa_values = [x.split()[0] for x in mmpbsa_values]
-            #print("num_poses: ", num_poses, " len(mmpbsa_values): ", len(mmpbsa_values))
+           
 
             if len(univ.trajectory) <= len(mmpbsa_values):
                 num_poses = len(univ.trajectory)
             else:
                 num_poses = len(mmpbsa_values)
 
-            # prot_masks = {} 
-            # lig_masks = {} 
-            # for atom in atom_names: 
-            #     prot_mask = univ.select_atoms(f"protein and (name {atom}*)") 
-            #     prot_masks[atom] = prot_mask 
-            #     lig_mask = univ.select_atoms(f"(not protein) and (name {atom}*)") 
-            #     lig_masks[atom] = lig_mask 
-
+         
             for i in range(num_poses): 
-                # lig_coords = [] 
-                # prot_coords = [] 
-
-                # prot_types = []         ####ALSO NEW
-                # lig_types = []          ####ALSO NEW
-
-
-                # # Compute Ligand Coordinates 
-                # for atom in atom_names:
-                #     prot = univ.trajectory[i].positions[prot_masks[atom].ix]    #Used multiple times, so calculated once
-                #     lig = univ.trajectory[i].positions[lig_masks[atom].ix]
-
-                #     # prot_coords.append(prot)   #Add the protein coords 
-                #     # lig_coords.append(lig)     #Add the ligand coords
-
-              
-                #     if prot.size > 0:       #Check to make sure works, should always happen
-                #         prot_coords.append(prot)   # #Add the protein coords 
-                #         prot_types.extend([atom] * len(prot))       #Adds the number of atoms
-                #         #prot_coords_all = np.vstack(prot_coords)
-
-                #     if lig.size > 0:
-                #         lig_coords.append(lig)     #Add the ligand coords
-                #         lig_types.extend([atom] * len(lig))     #Same for ligand
-                #        # lig_coords_all = np.vstack(lig_coords)
-                # # Skip if frame has no usable protein or ligand atoms
-                # if len(prot_coords) == 0 or len(lig_coords) == 0:
-                #     continue
-
-                # prot_coords_all = np.vstack(prot_coords)
-                # lig_coords_all = np.vstack(lig_coords)
-                           
-                
+               
             
                 (
                     prot_coords_all,
@@ -248,19 +212,12 @@ def compute_contacts_training(output_files):
 
 
 
-                ### WHERE GRAPH STOPS BEING CREATED
+            
 
 
 
                 uid = lig_uid + "_" + str(i)
 
-                # graph.y = torch.tensor([float(mmpbsa_values[i])], dtype=torch.float)
-                # graph.uid = uid
-                # graph.compound_num = lig_uid
-                # graph.frame = i
-                # graph.smiles = smiles
-                # graph.pdb_file = pdb_file
-                # graph.dcd_file = dcd_file
                 graph.y = torch.tensor([float(mmpbsa_values[i])], dtype=torch.float)
                 G.append(graph)
             
@@ -311,37 +268,9 @@ def compute_contacts_inference(output_files):
 
     for dcd_file, pdb_file, smiles in output_files: 
         try: 
-            # Create mda universe
+            
             if os.path.getsize(pdb_file) == 0 or os.path.getsize(dcd_file) == 0:
-                # smoke-test fallback - UNCOMMENT IF NEEDED
-
-
-                # prot_coords_all = np.array([[0., 0., 0.], [1., 0., 0.]], dtype=float)
-                # lig_coords_all  = np.array([[0., 0., 1.]], dtype=float)
-                # prot_types = ["C", "N"]
-                # lig_types = ["O"]
-
-                # graph = create_pose_graph(
-                #     prot_coords_all,
-                #     lig_coords_all,
-                #     prot_types,
-                #     lig_types,
-                #     cutoff=6.0
-                # )
-
-                # lig_uid = pdb_file.split('/')[-1].split('.')[1]
-                # uid = lig_uid + "_0"
-
-                # G.append(graph)
-                # rows.append({
-                #     "uid": uid,
-                #     "compound_num": lig_uid,
-                #     "frame": 0,
-                #     "smiles": smiles,
-                #     "pdb_file": pdb_file,
-                #     "dcd_file": dcd_file,
-                #     "graph_idx": len(G)-1
-                # })
+                
                 print(f"Skipping empty file: {pdb_file}, {dcd_file}")
                 continue 
             univ = mda.Universe(pdb_file, dcd_file) 
@@ -356,44 +285,9 @@ def compute_contacts_inference(output_files):
             num_poses = len(univ.trajectory)
 
 
-            # prot_masks = {} 
-            # lig_masks = {} 
-            # for atom in atom_names: 
-            #     prot_mask = univ.select_atoms(f"protein and (name {atom}*)") 
-            #     prot_masks[atom] = prot_mask 
-            #     lig_mask = univ.select_atoms(f"(not protein) and (name {atom}*)") 
-            #     lig_masks[atom] = lig_mask 
-
+        
             for i in range(num_poses): 
-                # lig_coords = [] 
-                # prot_coords = [] 
-
-                # prot_types = []         ####ALSO NEW
-                # lig_types = []          ####ALSO NEW
-
-
-                # # Compute Ligand Coordinates 
-                # for atom in atom_names:
-                #     prot = univ.trajectory[i].positions[prot_masks[atom].ix]    #Used multiple times, so calculated once
-                #     lig = univ.trajectory[i].positions[lig_masks[atom].ix]
-
-                #     # prot_coords.append(prot)   #Add the protein coords 
-                #     # lig_coords.append(lig)     #Add the ligand coords
-
-              
-                #     if prot.size > 0:       #Check to make sure works, should always happen
-                #         prot_coords.append(prot)   # #Add the protein coords 
-                #         prot_types.extend([atom] * len(prot))       #Adds the number of atoms
-                #         #prot_coords_all = np.vstack(prot_coords)
-
-                #     if lig.size > 0:
-                #         lig_coords.append(lig)     #Add the ligand coords
-                #         lig_types.extend([atom] * len(lig))     #Same for ligand
-                #        # lig_coords_all = np.vstack(lig_coords)
-                # # Skip if frame has no usable protein or ligand atoms
-                # if len(prot_coords) == 0 or len(lig_coords) == 0:
-                #     continue
-
+               
                 (
                     prot_coords_all,
                     lig_coords_all,
@@ -405,9 +299,7 @@ def compute_contacts_inference(output_files):
                     atom_names=atom_names,
                     residue_cutoff=args.residue_cutoff,
                 )
-                # prot_coords_all = np.vstack(prot_coords)
-                # lig_coords_all = np.vstack(lig_coords)
-                           
+               
                 if prot_coords_all is None or lig_coords_all is None:
                     continue
                 
@@ -425,22 +317,8 @@ def compute_contacts_inference(output_files):
         
 
 
-
-
-
-                ### WHERE GRAPH STOPS BEING CREATED
-
-
-
                 uid = lig_uid + "_" + str(i)
 
-                # graph.y = torch.tensor([float(mmpbsa_values[i])], dtype=torch.float)
-                # graph.uid = uid
-                # graph.compound_num = lig_uid
-                # graph.frame = i
-                # graph.smiles = smiles
-                # graph.pdb_file = pdb_file
-                # graph.dcd_file = dcd_file
 
                 G.append(graph)
             
@@ -482,7 +360,7 @@ def compute_contacts_inference(output_files):
 
 def main(args): 
     output_files = collect_file_paths(args)
-  #  cutoff = args.cutoff
+
     with Pool(processes=args.num_processes) as pool: 
         if args.mode == 'training':
             out = pool.map(compute_contacts_training, output_files)
@@ -503,17 +381,6 @@ def main(args):
     df = pd.concat(all_dfs, axis=0, ignore_index=True)
    
 
-    # print("After all files processed: ")
-    # count_dict = Counter(df['uid'])
-    # keys_greater_than_1 = [key for key, value in count_dict.items() if value > 1]
-    # if len(keys_greater_than_1) > 1:
-    #     print("Number of repeated keys: ", len(keys_greater_than_1))
-    # else:
-    #     print("All clear")
-
-    # print("number of unique id numbers: ", len(df['uid'].unique()), " number of total id numbers: ", len(df['uid']))
-
-
  # Save metadata dataframe
     df.to_csv(args.prepared_data_file, index=False)
 
@@ -531,10 +398,7 @@ def main(args):
 
     print(f"Saved metadata to {args.prepared_data_file}")
     print(f"Saved graphs to {graph_file}")
-    # torch.save(all_graphs, graph_file)
 
-    # print(f"Saved metadata to {args.prepared_data_file}")
-    # print(f"Saved graphs to {graph_file}")
 
     df2 = pd.read_csv(args.prepared_data_file)
 
@@ -562,12 +426,8 @@ if __name__ == "__main__":
     parser.add_argument("--num_processes", required=False, type=int, default=32)
     #Flag to distinguish between training and inference mode
     parser.add_argument("--mode", required=True, type=str)
-    # parser.add_argument(
-    # "--cutoff",
-    # type=float,
-    # default=6.0,
-    # help="Graph edge cutoff distance in Angstroms",
-    # )
+
+    #Residue Cutoff
     parser.add_argument(
     "--residue_cutoff",
     type=float,

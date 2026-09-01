@@ -1,7 +1,13 @@
+'''
+Basic file for a helper class used in training
+'''
 import torch
 
 
 class ManualGraphBatch:
+    '''
+    Manual batching is used to not rely on TorchGeometric, not usable on aurora
+    '''
     def __init__(self, x, pos, edge_index, y, batch, num_graphs):
         self.x = x
         self.pos = pos

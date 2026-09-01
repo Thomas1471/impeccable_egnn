@@ -1,11 +1,16 @@
+#EGNN Architecture
 import os
 import torch
 import torch.nn as nn
 
-EDGE_CUTOFF = float(os.environ.get("EGNN_EDGE_CUTOFF", "12.0"))
+
+EDGE_CUTOFF = float(os.environ.get("EGNN_EDGE_CUTOFF", "8.0"))
 
 
 def scatter_mean(src, index, dim_size):
+    '''
+    Computes a grouped mean over rows of src according to index
+    '''
     out = torch.zeros(
         dim_size,
         src.size(-1),
@@ -35,6 +40,9 @@ def scatter_mean(src, index, dim_size):
 
 
 def scatter_max(src, index, dim_size):
+    '''
+    Computes a grouped max over rows of src according to index.
+    '''
     expanded_index = index.unsqueeze(-1).expand_as(src)
 
     out = torch.full(
@@ -60,6 +68,9 @@ def scatter_max(src, index, dim_size):
 
 
 def scatter_attention_pool(src, logits, index, dim_size):
+    '''
+    Computes grouped attention pooling over edge messages for graph-level readout
+    '''
     logits = logits.view(-1, 1)
 
     expanded_index = index.unsqueeze(-1).expand_as(logits)
@@ -106,6 +117,9 @@ def scatter_attention_pool(src, logits, index, dim_size):
 
 
 def radial_basis(dist, num_radial=16, cutoff=12.0):
+    '''
+    Computes the radial basis functions for message passing
+    '''
     centers = torch.linspace(
         0.0,
         cutoff,
@@ -123,6 +137,9 @@ def radial_basis(dist, num_radial=16, cutoff=12.0):
 
 
 class EGNNLayer(nn.Module):
+    '''
+    Class for one layer of the EGNN
+    '''
     def __init__(
         self,
         hidden_dim: int,
@@ -140,6 +157,8 @@ class EGNNLayer(nn.Module):
             + num_edge_features
         )
 
+        #Defines three MLPs:
+            #one for edges, one for nodes, and one for coordinates
         self.edge_mlp = nn.Sequential(
             nn.Linear(edge_in_dim, hidden_dim),
             nn.SiLU(),
@@ -160,6 +179,9 @@ class EGNNLayer(nn.Module):
         )
 
     def forward(self, h, pos, edge_index, edge_attr):
+        '''
+        Basic forward function used for the EGNN
+        '''
         row, col = edge_index
 
         rel_pos = pos[row] - pos[col]
@@ -209,12 +231,15 @@ class EGNNLayer(nn.Module):
 
 
 class EGNNRegressor(nn.Module):
+    '''
+    EGNN Regressor Module
+    '''
     def __init__(
         self,
         in_dim=6,
-        hidden_dim=64,
+        hidden_dim=128,
         num_layers=4,
-        dropout=0.1,
+        dropout=0.0,
     ):
         super().__init__()
 
@@ -223,7 +248,7 @@ class EGNNRegressor(nn.Module):
             nn.SiLU(),
             nn.Linear(hidden_dim, hidden_dim),
         )
-
+        #Defines the Layers in the EGNN, using 4 as a baseline amount
         self.layers = nn.ModuleList(
             [
                 EGNNLayer(
@@ -241,6 +266,7 @@ class EGNNRegressor(nn.Module):
             nn.Linear(hidden_dim // 2, 1),
         )
 
+        #Defines readout
         self.readout = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim),
             nn.SiLU(),
@@ -256,6 +282,10 @@ class EGNNRegressor(nn.Module):
         edge_index,
         node_is_ligand,
     ):
+        '''
+        Builds the chemical features used for edges
+        This includes atom identity, van der Waals radii, distance norm and other features
+        '''
         h = data.x.float()
         pos = data.pos.float()
 
@@ -367,6 +397,9 @@ class EGNNRegressor(nn.Module):
         return edge_attr
 
     def forward(self, data):
+        '''
+        Basic forward mechanism used for the Regressor
+        '''
         h = data.x.float()
         pos = data.pos.float()
         edge_index = data.edge_index
@@ -378,6 +411,7 @@ class EGNNRegressor(nn.Module):
         cross_edge_mask = node_is_ligand[row] != node_is_ligand[col]
         edge_index = edge_index[:, cross_edge_mask]
 
+        #Ensuring graph exists
         if edge_index.size(1) == 0:
             raise RuntimeError(
                 "Graph contains no protein-ligand cross edges."
@@ -397,6 +431,7 @@ class EGNNRegressor(nn.Module):
 
         row, col = edge_index
 
+        #Builds the edge attributes
         edge_attr = self.build_chem_edge_features(
             data=data,
             edge_index=edge_index,
@@ -440,6 +475,7 @@ class EGNNRegressor(nn.Module):
 
         edge_batch = batch[row]
 
+        #Computes logits and performs both attention and max pooling
         edge_logits = self.edge_gate(last_messages)
 
         edge_attn = scatter_attention_pool(

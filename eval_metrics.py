@@ -1,3 +1,6 @@
+'''
+Computes regression, regret/rank and IMPECCABLE-style Top-p recovery metrics from the EGNN scores CSV.
+'''
 import argparse
 import json
 from pathlib import Path
@@ -24,6 +27,9 @@ def corr(a, b, method):
 
 
 def regression_metrics(df, true_col, pred_col, compound_col):
+    '''
+    Computes regression metrics for the csv
+    '''
     y = df[true_col].to_numpy(float)
     p = df[pred_col].to_numpy(float)
     err = p - y
@@ -45,6 +51,9 @@ def regression_metrics(df, true_col, pred_col, compound_col):
 
 
 def selection_metrics(df, true_col, pred_col, compound_col, p_values=(1, 3, 5)):
+    '''
+    Computes selection metrics, mainly IMPECCABLE's top-p
+    '''
     df = df.copy()
     df["_row_id"] = np.arange(len(df))
 
@@ -108,6 +117,10 @@ def selection_metrics(df, true_col, pred_col, compound_col, p_values=(1, 3, 5)):
 
 
 def evaluate_method(df, true_col, pred_col, compound_col):
+    '''
+    Evalutes the selected method by looking at the difference in the actual column and the predicted values
+    Computes both regresion and selection metrics
+    '''
     return {
         "regression": regression_metrics(df, true_col, pred_col, compound_col),
         "selection": selection_metrics(df, true_col, pred_col, compound_col),
@@ -120,6 +133,9 @@ def main():
     ap.add_argument("--out_dir", required=True)
     args = ap.parse_args()
 
+    '''
+    Parses out the appropriate csv, making a new one containing the stats
+    '''
     scores_csv = Path(args.scores_csv)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -133,6 +149,14 @@ def main():
     true_col = pick_col(df, ["mmpbsa", "true_mmpbsa", "raw_mmpbsa", "y_true"], "true MMPBSA column")
     pred_col = pick_col(df, ["pred_score", "pred_mmpbsa", "y_pred"], "EGNN raw prediction column")
 
+    '''
+    Creates different residual target columns:
+        Residual True: Creates actual residual target
+        Residual Prediction: Creates residua prediction column
+        Frame Template: The average of each frame
+        Lower Frame: The results of always picking the lower frame in ranking
+        
+    '''
     residual_true_col = pick_col(df, ["residual_target"], "residual target column")
     residual_pred_col = pick_col(df, ["pred_residual"], "residual prediction column")
     frame_template_col = pick_col(df, ["frame_template_baseline_score", "frame_template_score"], "frame-template column")
@@ -148,6 +172,7 @@ def main():
     print(df.groupby(compound_col).size().describe())
 
     results = {
+        #Computes the metrics for each result type
         "egnn_raw_vs_raw_mmpbsa": evaluate_method(df, true_col, pred_col, compound_col),
         "egnn_residual_vs_residual_target": evaluate_method(df, residual_true_col, residual_pred_col, compound_col),
         "egnn_residual_vs_raw_mmpbsa": evaluate_method(df, true_col, residual_pred_col, compound_col),
@@ -190,6 +215,7 @@ def main():
     r = main_block["regression"]
     s = main_block["selection"]
 
+    #Prints main metrics
     print("\nEGNN raw score vs raw MMPBSA")
     print("Rows:", r["rows"])
     print("Compounds:", r["compounds"])

@@ -6,6 +6,9 @@ ATOM_TO_IDX = {atom: i for i, atom in enumerate(ATOM_ORDER)}
 
 
 class GraphData:
+    '''
+    Class for Graph Data
+    '''
     def __init__(self, x, pos, edge_index, y=None):
         self.x = x
         self.pos = pos
@@ -23,6 +26,9 @@ class GraphData:
 
 
 def radius_graph_pure_torch(pos, cutoff, loop=False):
+    '''
+    Creates an edge index based off of the cutoff value
+    '''
     dist = torch.cdist(pos, pos)
     mask = dist <= cutoff
 
@@ -31,31 +37,6 @@ def radius_graph_pure_torch(pos, cutoff, loop=False):
 
     edge_index = mask.nonzero(as_tuple=False).t().contiguous()
     return edge_index
-
-
-# def create_pose_graph(prot_coords, lig_coords, prot_types, lig_types, cutoff=6.0):
-#     pos = torch.tensor(
-#         np.vstack([prot_coords, lig_coords]),
-#         dtype=torch.float
-#     )
-
-
-    
-
-
-#     all_types = prot_types + lig_types
-#     is_ligand = [0] * len(prot_types) + [1] * len(lig_types)
-
-#     node_features = []
-#     for atom_type, lig_flag in zip(all_types, is_ligand):
-#         one_hot = [0] * len(ATOM_ORDER)
-#         one_hot[ATOM_TO_IDX[atom_type]] = 1
-#         node_features.append(one_hot + [lig_flag])
-
-#     x = torch.tensor(node_features, dtype=torch.float)
-#     edge_index = radius_graph_pure_torch(pos, cutoff=cutoff, loop=False)
-
-#     return GraphData(x=x, pos=pos, edge_index=edge_index)
 
 def create_pose_graph(
     prot_coords,
@@ -73,10 +54,6 @@ def create_pose_graph(
       - all provided protein atoms
       - all ligand atoms
       - only protein-ligand edges within cutoff
-
-    Does NOT create:
-      - protein-protein edges
-      - ligand-ligand edges
     """
 
     prot_coords = torch.tensor(prot_coords, dtype=torch.float)

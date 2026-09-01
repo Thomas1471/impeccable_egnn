@@ -4,6 +4,7 @@ This directory contains the EGNN code developed for the dissertation project. Th
 
 The repository is not a standalone version of the full IMPECCABLE pipeline. It contains the code written for graph construction, EGNN training, EGNN evaluation and comparison against the AMPL/IMPECCABLE histogram baseline. The original docking inputs, generated graph shards, trained checkpoints and wider IMPECCABLE pipeline are not included.
 
+This repository will not run by itself, but is an indication of the code used and written by me within the dissertation.
 ## Main files
 
 ### Graph generation
@@ -53,7 +54,6 @@ The full dataset is not included because it is too large and depends on the wide
 
 The final graph dataset used in the dissertation was generated on Aurora from:
 
-```text
 /lus/flare/projects/CompBioAffin/tomtom147/real_labelled_10k_inputs_sharded
 and written to:
 
