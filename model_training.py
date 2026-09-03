@@ -264,7 +264,7 @@ def calculate_losses(pred, target, compound_ids, lambda_relative):
     '''
     Function used to calculate the two losses used in this dissertation:
         absolute_loss: The regular mse loss of the prediction and the target
-        relative_loss: The average loss based off of the prediction difference between MSE compound-centred predictions and targets,
+        relative_loss: MSE between compound-centred predictions and targets,
                    encouraging within-compound pose discrimination.
         total_loss: A combination of the two losses, with the relative_loss being weighted more to emphasise ranking performance
     '''
@@ -701,8 +701,8 @@ def main():
 
     summary = {
         "run": args.index,
-        "model_file": "EGNNThomas_batched_chem_edge_cutoff_gated.py",
-        "training_script": "model_training_sharded_chem_edge_cut8_gated_normres.py",
+        "model_file": "EGNN.py",
+        "training_script": "model_training.py",
         "sharded_root": args.sharded_root,
         "n_shards": len(shards),
         "n_rows": int(len(metadata)),

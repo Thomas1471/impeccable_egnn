@@ -12,9 +12,7 @@ import MDAnalysis as mda
 
 from feature_generation_graph import create_pose_graph
 
-import torch
 
-from feature_generation_graph import create_pose_graph
 
 
 #Main graph-generation script. It converts IMPECCABLE docking outputs into atom-level protein-ligand graphs.
@@ -159,8 +157,8 @@ def compute_contacts_training(output_files):
         try: 
             # Create mda universe
             
-            print(f"Trying pdb_file={pdb_file}")#NEW
-            print(f"Trying dcd_file={dcd_file}")#NEW
+            print(f"Trying pdb_file={pdb_file}")
+            print(f"Trying dcd_file={dcd_file}")
             univ = mda.Universe(pdb_file, dcd_file) 
 
             # For UID:

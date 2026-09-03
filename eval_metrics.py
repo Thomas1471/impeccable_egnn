@@ -118,8 +118,8 @@ def selection_metrics(df, true_col, pred_col, compound_col, p_values=(1, 3, 5)):
 
 def evaluate_method(df, true_col, pred_col, compound_col):
     '''
-    Evalutes the selected method by looking at the difference in the actual column and the predicted values
-    Computes both regresion and selection metrics
+    Evaluates the selected method by looking at the difference in the actual column and the predicted values
+    Computes both regression and selection metrics
     '''
     return {
         "regression": regression_metrics(df, true_col, pred_col, compound_col),
@@ -133,9 +133,7 @@ def main():
     ap.add_argument("--out_dir", required=True)
     args = ap.parse_args()
 
-    '''
-    Parses out the appropriate csv, making a new one containing the stats
-    '''
+    # Read the scores CSV and create the output directory.
     scores_csv = Path(args.scores_csv)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -152,7 +150,7 @@ def main():
     '''
     Creates different residual target columns:
         Residual True: Creates actual residual target
-        Residual Prediction: Creates residua prediction column
+        Residual Prediction: Creates residual prediction column
         Frame Template: The average of each frame
         Lower Frame: The results of always picking the lower frame in ranking
         
